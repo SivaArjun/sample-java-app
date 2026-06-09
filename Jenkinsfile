@@ -20,9 +20,26 @@ pipeline {
             }
         }
 
-        stage('Test') {
-            steps {
-                sh 'mvn test'
+        stage('Parallel Checks') {
+            Parallel {
+
+                stage('Unit Tests') {
+                    steps {
+                        sh 'mvn test'
+                    }
+                }
+                
+                stage('Code lint') {
+                    steps {
+                        sh 'echo Running lint check...'
+                    }
+                }
+
+                stage('Security Scan(Mock)') {
+                    steps{
+                        sh 'echo Running Security scan...'
+                    }
+                }
             }
         }
 
@@ -31,9 +48,9 @@ pipeline {
             steps {
                 sh '''
                 echo "Deploying to Dev EC2"
-                scp target/*.jar ubuntu@<target-65.2.83.230>:/home/ubuntu/app.jar
-                ssh ubuntu@<target-65.2.83.230> "pkill -f app.jar || true"
-                ssh ubuntu@<target-65.2.83.230> "nohup java -jar /home/ubuntu/app.jar &"
+                scp target/*.jar ubuntu@target-65.2.83.230:/home/ubuntu/app.jar
+                ssh ubuntu@target-65.2.83.230 "pkill -f app.jar || true"
+                ssh ubuntu@target-65.2.83.230 "nohup java -jar /home/ubuntu/app.jar &"
                 '''
             }
         }
