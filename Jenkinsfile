@@ -1,35 +1,64 @@
 pipeline {
     agent any
 
+    options {
+        disableConcurrentBuilds()
+        timestamps()
+    }
+
     stages {
+
         stage('checkout') {
             steps {
-                sh '''
-                # Clean workspace (optional but recommended)
-                rm -rf sample-java-app
-                #clone repo using SSH
-                git clone git@github.com:SivaArjun/sample-java-app.git
-
-                cd sample-java-app
-                '''
+                checkout scm
             }
         }
 
         stage('Build') {
             steps {
-                sh '''
-                cd sample-java-app 
-                mvn clean package
-                '''
+                sh 'mvn clean package'
             }
         }
 
-        stage('Verify Artifact') {
+        stage('Test') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+
+        stage('Deploy to Dev') {
+            when { branch 'main' }
             steps {
                 sh '''
-                ls -ltr sample-java-app/target
+                echo "Deploying to Dev EC2"
+                scp target/*.jar ubuntu@<target-65.2.83.230>:/home/ubuntu/app.jar
+                ssh ubuntu@<target-65.2.83.230> "pkill -f app.jar || true"
+                ssh ubuntu@<target-65.2.83.230> "nohup java -jar /home/ubuntu/app.jar &"
                 '''
             }
+        }
+        stage('Deploy to Staging') {
+            when { tag "v*" }
+            steps {
+                echo "Deploying to Staging"
+            }
+        }
+        stage ('Approval') {
+            when { tag "v*"}
+            steps {
+                input "Approve production deployment"
+            }
+        }
+        stage('Deploy to Production') {
+            when { tag "v*" }
+            steps {
+                echo "Deploying to Production"
+            }
+        }
+    }
+    post {
+        always {
+            cleanWs()
         }
     }
 }
